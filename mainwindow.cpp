@@ -16,6 +16,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     ui->webView->load(QUrl("https://auth.garena.com/oauth/login?client_id=10035&redirect_uri=http://beta.vetv.vn/api/glogin&response_type=token&locale=vi-VN"));
+	qApp->addLibraryPath(QDir::currentPath()+"/plugins");
 }
 
 MainWindow::~MainWindow()

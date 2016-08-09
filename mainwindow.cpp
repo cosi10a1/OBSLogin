@@ -10,13 +10,18 @@
 #include <QFile>
 #include <QDir>
 #include "obs-app.hpp"
+#include <QNetworkCookieJar>
+bool error = false;
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+	//ui->webView->setUrl(QUrl("https://auth.garena.com/oauth/login?client_id=10035&redirect_uri=http://beta.vetv.vn/api/glogin&response_type=token&locale=vi-VN"));
     ui->webView->load(QUrl("https://auth.garena.com/oauth/login?client_id=10035&redirect_uri=http://beta.vetv.vn/api/glogin&response_type=token&locale=vi-VN"));
 	qApp->addLibraryPath(QDir::currentPath()+"/plugins");
+
+	
 }
 
 MainWindow::~MainWindow()
@@ -47,13 +52,19 @@ MainWindow::~MainWindow()
 }
 void MainWindow::handleAuthError()
 {
+	error = true;
     QMessageBox::critical(this,"Error","Login fail");
+	ui->webView->page()->networkAccessManager()->setCookieJar(new QNetworkCookieJar());
    ui->webView->load(QUrl("https://auth.garena.com/oauth/login?client_id=10035&redirect_uri=http://beta.vetv.vn/api/glogin&response_type=token&locale=vi-VN"));
+   error = false;
 }
 void MainWindow::handleFileError()
 {
+	error = true;
     QMessageBox::critical(this,"Error","Canot write config file");
+	ui->webView->page()->networkAccessManager()->setCookieJar(new QNetworkCookieJar());
    ui->webView->load(QUrl("https://auth.garena.com/oauth/login?client_id=10035&redirect_uri=http://beta.vetv.vn/api/glogin&response_type=token&locale=vi-VN"));
+   error = false;
 }
 void MainWindow::writeJsonFile(QString filepath,QString data)
 {
@@ -62,6 +73,7 @@ QJsonDocument document = QJsonDocument::fromJson(data.toUtf8());
 if (!File.open(QFile::WriteOnly | QFile::Text | QFile::Truncate))
 {
 	handleFileError();
+	
 	return;
 }
 
@@ -71,6 +83,8 @@ File.close();
 }
 void MainWindow::on_webView_urlChanged(const QUrl &arg1)
 {
+	
+	if (error) return;
     if(ui->webView->url().toString()=="https://auth.garena.com/oauth/login?client_id=10035&redirect_uri=http://beta.vetv.vn/api/glogin&response_type=token&locale=vi-VN")
         return;
     QString str=ui->webView->url().toString();
@@ -85,8 +99,8 @@ void MainWindow::on_webView_urlChanged(const QUrl &arg1)
 		handleAuthError();
 		return;
 	}
-	char path[512];
-
+    char path[512];
+	
 	if (GetConfigPath(path, sizeof(path), "obs-studio") <= 0)
 		return ;
 	QString obspath= QString::fromUtf8(path);
@@ -96,10 +110,11 @@ void MainWindow::on_webView_urlChanged(const QUrl &arg1)
 	if (!dir.exists()) {
 		dir.mkpath(".");
 	}
-	QString servers = "{\"format_version\":1,\n\"services\":[\n{\n\"common\":true,\n\"name\":\"VST\",\n\"recommended\":{\n\"keyint\":2,\n\"max audio bitrate\":160,\n\"max video bitrate\":3500,\n\"profile\":\"main\",\n\"x264opts\":\"scenecut=0\"},\n\"servers\":[\n{\"name\":\"Encoder 1\",\n\"url\":\"rtmp:\/\/113.171.255.130\/stream\"\n}\n]\n}\n],\n\"version\":51\n}";
+	QString servers = "{\"format_version\":1,\n\"services\":[\n{\n\"common\":true,\n\"name\":\"VST\",\n\"recommended\":{\n\"keyint\":2,\n\"max audio bitrate\":160,\n\"max video bitrate\":3500,\n\"profile\":\"main\",\n\"x264opts\":\"scenecut=0\"},\n\"servers\":[\n{\"name\":\"Encoder 1\",\n\"url\":\"rtmp:\/\/" + obj["value"].toObject()["stream_server"].toString() + "\/stream\"\n}\n]\n}\n],\n\"version\":51\n}";
 	QString keys = "{\"settings\":{\n\"key\":\"" + obj["value"].toObject()["stream_key"].toString() + "\",\n\"server\":\"rtmp:\/\/"+obj["value"].toObject()["stream_server"].toString() + "\/stream\",\n\"service\":\"VST\"\n},\n\"type\":\"rtmp_common\"\n}";
 	writeJsonFile(currentkeypath, keys);
 	writeJsonFile(serverpath, servers);
+	error = false;
 	emit mySignal();
 	this->close();
 }
